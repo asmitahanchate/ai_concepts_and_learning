@@ -1,0 +1,7 @@
+# Blocks any commit that contains something that looks like a secret (API keys, tokens).
+# One-time setup:  uv run pre-commit install
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks

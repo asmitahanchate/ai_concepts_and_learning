@@ -1,0 +1,23 @@
+# Secrets: never commit real keys
+.env
+.env.*
+!.env.example
+
+# Private notes: never commit
+private-notes/
+*PRIVATE*
+
+# Python / tooling
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Downloaded corpus and caches (re-created by the scripts)
+data/
+.cache/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/

@@ -1,0 +1,30 @@
+{"id": "q01", "question": "What happens if I pass a weird value like 'maybe' to a boolean query parameter?", "evidence": "produces a 422 validation error", "source": "tutorial/query-params.md"}
+{"id": "q02", "question": "How do I send an error like 404 Not Found back to the client?", "evidence": "to return http responses with errors to the client you use httpexception", "source": "tutorial/handling-errors.md"}
+{"id": "q03", "question": "How can I stop the API from returning default values the client never set?", "evidence": "response_model_exclude_unset=true", "source": "tutorial/response-model.md"}
+{"id": "q04", "question": "What extra package must be installed before my endpoint can accept uploaded files?", "evidence": "to receive uploaded files, first install python-multipart", "source": "tutorial/request-files.md"}
+{"id": "q05", "question": "What does FastAPI do with an endpoint written with plain def instead of async def?", "evidence": "it is run in an external threadpool", "source": "async.md"}
+{"id": "q06", "question": "How do I stop FastAPI from turning underscores in header names into hyphens?", "evidence": "set the parameter convert_underscores of header to false", "source": "tutorial/header-params.md"}
+{"id": "q07", "question": "Can I allow every origin with a wildcard if my CORS setup also allows cookies?", "evidence": "if allow_credentials is set to true", "source": "tutorial/cors.md"}
+{"id": "q08", "question": "How do I require a numeric path parameter to be at least 1?", "evidence": "item_id will need to be an integer number \"greater than or equal\"", "source": "tutorial/path-params-numeric-validations.md"}
+{"id": "q09", "question": "How do I split routes across several files and plug them into one app?", "evidence": "with app.include_router() we can add each apirouter to the main fastapi application", "source": "tutorial/bigger-applications.md"}
+{"id": "q10", "question": "Which signing algorithm does the JWT security tutorial use?", "evidence": "set it to \"hs256\"", "source": "tutorial/security/oauth2-jwt.md"}
+{"id": "q11", "question": "When creating the OAuth2 password bearer scheme, what argument points to the login URL?", "evidence": "we pass in the tokenurl parameter", "source": "tutorial/security/first-steps.md"}
+{"id": "q12", "question": "How can I run some work, like sending an email, after the response has already been returned?", "evidence": "with a type declaration of backgroundtasks", "source": "tutorial/background-tasks.md"}
+{"id": "q13", "question": "How do I swap a real dependency for a fake one during testing?", "evidence": "your fastapi application has an attribute app.dependency_overrides", "source": "advanced/testing-dependencies.md"}
+{"id": "q14", "question": "How do I read app configuration from environment variables using Pydantic?", "evidence": "import basesettings from pydantic and create a sub-class", "source": "advanced/settings.md"}
+{"id": "q15", "question": "How do I make startup and shutdown logic run inside my tests?", "evidence": "use the testclient with a with statement", "source": "advanced/testing-events.md"}
+{"id": "q16", "question": "Why aren't my lifespan events firing when I test with an async HTTP client?", "evidence": "the asyncclient won't trigger these events", "source": "advanced/async-tests.md"}
+{"id": "q17", "question": "If one copy of my app loads a 1 GB model and I run 4 worker processes, how much RAM is used?", "evidence": "your api will consume 4 gb of ram", "source": "deployment/concepts.md"}
+{"id": "q18", "question": "How did people get HTTPS certificates before free certificate authorities existed?", "evidence": "these https certificates were sold by trusted third parties", "source": "deployment/https.md"}
+{"id": "q19", "question": "My proxy serves the app under a path prefix like /api/v1. How do I tell the server?", "evidence": "configure the server with fastapi run --root-path", "source": "advanced/behind-a-proxy.md"}
+{"id": "q20", "question": "How do I serve images and CSS files from a folder?", "evidence": "serve static files automatically from a directory using staticfiles", "source": "tutorial/static-files.md"}
+{"id": "q21", "question": "Which library does the SQL database tutorial use, and what is it built on?", "evidence": "sqlmodel is built on top of sqlalchemy", "source": "tutorial/sql-databases.md"}
+{"id": "q22", "question": "Does the cleanup code of a yield dependency run before or after middleware?", "evidence": "the exit code will run after the middleware", "source": "tutorial/middleware.md"}
+{"id": "q23", "question": "How do I render HTML pages from templates?", "evidence": "import jinja2templates", "source": "advanced/templates.md"}
+{"id": "q24", "question": "Which style is recommended for declaring dependencies: Annotated or a default value?", "evidence": "prefer to use the annotated version if possible", "source": "tutorial/dependencies/classes-as-dependencies.md"}
+{"id": "q25", "question": "Does FastAPI give me tracing, metrics and logs out of the box?", "evidence": "fastapi provides opentelemetry support by default", "source": "advanced/opentelemetry.md"}
+{"id": "q26", "question": "How can I run an old Flask or Django app inside my FastAPI app?", "evidence": "use the wsgimiddleware and use it to wrap your wsgi application", "source": "advanced/wsgi.md"}
+{"id": "q27", "question": "What format do server-sent events use that browsers support natively?", "evidence": "uses the text/event-stream format", "source": "tutorial/server-sent-events.md"}
+{"id": "q28", "question": "How do I limit how big a request body can be?", "evidence": "you can set max_body_size in bytes when you create your fastapi app", "source": "advanced/request-body-limits.md"}
+{"id": "q29", "question": "Does the development command restart the server automatically when I change code?", "evidence": "by default, auto-reload is enabled", "source": "fastapi-cli.md"}
+{"id": "q30", "question": "How do I turn off the OpenAPI schema and the docs pages completely?", "evidence": "you can set openapi_url=none", "source": "tutorial/metadata.md"}

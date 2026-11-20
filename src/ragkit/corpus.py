@@ -13,7 +13,8 @@ the "textbook" in the open-book-exam analogy.
 from __future__ import annotations  # lets us use modern type hints on older Pythons
 
 import re  # regular expressions, used to clean Markdown
-import subprocess  # runs `git` commands from Python
+import subprocess  # runs `curl` to download the docs
+import zipfile  # opens .zip archives (built into Python)
 from dataclasses import dataclass, field  # quick way to make simple data classes
 from pathlib import Path  # nicer, cross-platform file paths
 
@@ -21,8 +22,8 @@ from pathlib import Path  # nicer, cross-platform file paths
 # Configuration
 # ---------------------------------------------------------------------------
 
-# Where the repo lives on GitHub.
-FASTAPI_REPO = "https://github.com/fastapi/fastapi.git"
+# GitHub serves any commit as a .zip file at this address. No git needed.
+FASTAPI_ZIP_URL = "https://github.com/fastapi/fastapi/archive/{commit}.zip"
 
 # Pin an exact commit so the corpus never changes underneath our eval set.
 # If FastAPI edits a page, our evidence phrases could stop matching, so we freeze it.
@@ -33,8 +34,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Downloaded docs go in data/, which is listed in .gitignore.
 DATA_DIR = REPO_ROOT / "data"
-CLONE_DIR = DATA_DIR / "fastapi-src"
-DOCS_DIR = CLONE_DIR / "docs" / "en" / "docs"
+ZIP_PATH = DATA_DIR / "fastapi.zip"
+DOCS_DIR = DATA_DIR / "fastapi-docs"  # only the English docs get unpacked here
 
 # Sections of the docs we include. These are the "learning" pages.
 INCLUDE_DIRS = ["tutorial", "advanced", "deployment", "how-to"]
@@ -67,32 +68,32 @@ class Doc:
 
 
 # ---------------------------------------------------------------------------
-# Step 1: download
+# Step 1: download (one zip file, no git)
 # ---------------------------------------------------------------------------
-
-def _git(*args: str, cwd: Path | None = None) -> None:
-    """Run a git command and stop with a clear error if it fails."""
-    subprocess.run(["git", *args], cwd=cwd, check=True)
-
 
 def download_fastapi_docs(force: bool = False) -> Path:
     """
-    Fetch ONLY the docs folder at the pinned commit.
-
-    Uses two Git features so we don't download the whole repo:
-      * --filter=blob:none  -> "partial clone": file contents are fetched lazily
-      * sparse-checkout     -> only check out docs/en/docs
+    Download FastAPI at the pinned commit as ONE .zip file, then unpack only
+    the English docs (docs/en/docs/...). Uses `curl`, which every Mac already has.
     """
-    if DOCS_DIR.exists() and not force:
+    if DOCS_DIR.exists() and any(DOCS_DIR.rglob("*.md")) and not force:
         return DOCS_DIR  # already downloaded, nothing to do
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    if not CLONE_DIR.exists():
-        _git("clone", "--filter=blob:none", "--no-checkout", "--quiet", FASTAPI_REPO, str(CLONE_DIR))
-    _git("sparse-checkout", "set", "docs/en/docs", cwd=CLONE_DIR)
-    # Fetch exactly our pinned commit (shallow = no history) and check it out.
-    _git("fetch", "--depth", "1", "--quiet", "origin", FASTAPI_COMMIT, cwd=CLONE_DIR)
-    _git("checkout", "--quiet", FASTAPI_COMMIT, cwd=CLONE_DIR)
+    url = FASTAPI_ZIP_URL.format(commit=FASTAPI_COMMIT)
+    print(f"Downloading FastAPI docs from {url} ...")
+    # -L follows GitHub's redirect, -f fails loudly on HTTP errors, -sS hides the progress bar but shows errors.
+    subprocess.run(["curl", "-fsSL", "-o", str(ZIP_PATH), url], check=True)
+
+    # The zip contains one top folder like "fastapi-05e6df.../". We keep only .md files
+    # under "<top>/docs/en/docs/" and write them into data/fastapi-docs/ with the same sub-folders.
+    with zipfile.ZipFile(ZIP_PATH) as zf:
+        for name in zf.namelist():
+            _top, _sep, rest = name.partition("/")
+            if rest.startswith("docs/en/docs/") and rest.endswith(".md"):
+                target = DOCS_DIR / rest.removeprefix("docs/en/docs/")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(zf.read(name))
     return DOCS_DIR
 
 

@@ -11,10 +11,14 @@ Every project follows the same loop: **learn the concept → build it small in P
 | 02 | Embedding shoot-out | Comparing embedding models | ⏳ |
 | 03 | Vector DB tour | Chroma, Qdrant, Pinecone, HNSW | ⏳ |
 
+## Blog
+
+- [What I learned about RAG, and how it connects to my work](blog/01-rag-basics-and-my-work.md)
+
 ## Setup (Mac)
 
 ```bash
-brew install uv            # Python project manager
+curl -LsSf https://astral.sh/uv/install.sh | sh   # installs uv (Python project tool)
 uv sync                    # creates .venv and installs everything from uv.lock
 uv run pre-commit install  # turns on the secret scanner for every commit
 uv run pytest              # quick check that everything works

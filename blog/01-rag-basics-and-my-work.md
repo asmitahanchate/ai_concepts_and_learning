@@ -29,43 +29,32 @@ When the "book" is too big, you need a few more pieces:
 
 ## Where these ideas show up in my work
 
-### 1. BILL: a RAG pipeline over an 800,000-character API spec
+### 1. BILL
+I built a Retrieval-Augmented Generation (RAG) pipeline for BILL (NYSE-listed fintech) over an 800K-character OpenAPI spec using two-stage retrieval and LLM-free indexing, cutting hallucinations from ~30–40% to under 2% and context tokens by ~70% at sub-second latency.
 
-BILL's developer assistant was sometimes **hallucinating API answers**: invented fields, or endpoint examples that didn't match the real API. Roughly 30–40% of answers had this problem.
+- **Two-stage retrieval:** `/discover` ranks API operations for a natural-language question, and `/get_endpoint_details` returns one operation's full schema. The assistant verifies against the schema before answering.
+- **Why LLM-free indexing:** my first attempt enriched 300 endpoints with an LLM (10 workers) and hit rate-limit backoffs of up to 293 seconds against a 120-second runtime limit. Indexing by API operation, without an LLM, was faster and reliable.
+- **Connection to today:** this is chunking by the document's own structure, one operation per piece.
 
-- The OpenAPI specification is about **800,000 characters**, far too big to give the model all at once.
-- I built a **Retrieval-Augmented Generation (RAG) pipeline** over the OpenAPI spec using **two-stage retrieval**:
-  - **`/discover`** ranks API operations for a natural-language question.
-  - **`/get_endpoint_details`** returns one operation's full schema (parameters, request body, responses).
-- The assistant follows one simple rule: **verify before you answer.** No technical details without a successful lookup, and if the docs and the spec disagree, the spec wins.
-- With **LLM-free indexing**, this cut hallucinations from **~30–40% to under 2%** and reduced context tokens by **~70%**, at sub-second latency.
+### 2. Nutanix
+I architected memory-based infrastructure for agents at Nutanix with Bring-Your-Own-Agent / Knowledge-Base support, letting users connect any system (Jira, Jenkins, AWS, GCP, Azure and more) as agent memory through an event-driven ingestion pipeline that chunks build logs up to 200 MB for hybrid BM25 + vector search.
 
-**What I learned from a first attempt that didn't work:** I originally tried enriching all 300 endpoints with an LLM while indexing, using 10 workers. The calls hit rate-limit backoffs of up to 293 seconds, against a 120-second serverless runtime limit. So I switched to **LLM-free, operation-level indexing** instead, which was faster and fully reliable. Lesson: **be careful about putting an LLM call on every item in your indexing path.**
+I reduced Nutanix build-failure triage from up to 7 hours to under 30 seconds with ~96% root-cause accuracy across 15–30 failed builds a day via signal-based text-to-SQL retrieval, auto-routing each failure to its owner as a Jira ticket.
 
-### 2. Nutanix: agent memory for build failures
+- **Connection to today:** logs are split into ~60 KB segments to stay under a 1 MB indexing limit, and the platform splits each segment again into smaller passages before embedding. That's two-level chunking: big segments for context, small passages for precise matching.
 
-At Nutanix, I architected **memory-based infrastructure for agents**, with Bring-Your-Own-Agent and Knowledge-Base support, so users can connect systems like Jira, Jenkins, AWS, GCP and Azure as agent memory.
+### 3. Camping World
+I engineered an enterprise search system for Camping World (~13K employees) unifying Outlook, Teams, Jira, Confluence and Asana behind one AI assistant with permission-scoped retrieval, raising result coverage from ~4.5% to 100% by routing exact lookups to deterministic SQL.
 
-- The **event-driven ingestion pipeline** captures each Jenkins build failure as it happens.
-- Build logs can be up to **200 MB**, and files over **1 MB** weren't indexed automatically. So the pipeline chunks each log into **~60 KB segments**, which makes them searchable with hybrid **BM25 + vector search**. A 100 MB log becomes about 1,700 segments.
-- On top of that, **signal-based text-to-SQL retrieval** finds the relevant failure data, and each failure is auto-routed to its owner as a Jira ticket.
-- Result: build-failure triage went from **up to 7 hours to under 30 seconds**, with **~96% root-cause accuracy** across 15–30 failed builds a day.
-- Creating that many segments also meant many API calls, so we had to plan carefully around **rate limits**.
+I scaled Camping World's data agents with a summary-table caching layer over tens of millions of Snowflake records, replacing ~32 s warehouse scans that timed out agent workflows with pre-aggregated reads.
 
-**What I understood more deeply today:** the platform doesn't turn a 60 KB segment into one embedding. It splits each one again into smaller passages before embedding, and shows the full segment when a passage matches. So the system works as **two-level chunking**: big segments for context, small passages for precise matching.
+- **Connection to today:** ranked search returned the top 10 of 223 chat rooms, and the one a user needed was #143. Search gives you the best matches, not a complete list. For "find all of X," use SQL.
 
-### 3. Camping World: permission-scoped search, and knowing when not to search
+### 4. S&P Global
+I designed a unified knowledge layer for S&P Global that syncs data from any source (e.g., Azure DevOps) for search and SQL querying, shrinking quarterly program (PI) planning from 1 week to a few hours for RTEs, scrum masters and PMs.
 
-For Camping World (~13,000 employees), I engineered an **enterprise search system** that unifies Outlook, Teams, Jira, Confluence and Asana behind one AI assistant, with **permission-scoped retrieval**.
-
-- One user needed a specific Teams chat. Ranked search returned only the **top 10 of 223** chat rooms, and the one they needed was at **#143**.
-- By routing exact lookups like this to **deterministic SQL**, result coverage went from **~4.5% to 100%**.
-- Lesson: **search gives you the best matches, not a complete list.** For "find all of X," use a query.
-- I also scaled Camping World's data agents with a **summary-table caching layer** over tens of millions of Snowflake records, replacing ~32-second warehouse scans that timed out agent workflows with pre-aggregated reads.
-
-### 4. S&P Global: one knowledge layer for many sources
-
-For S&P Global, I designed a **unified knowledge layer** that syncs data from any source (for example, Azure DevOps) so it can be searched and queried with SQL. This shrank quarterly program (PI) planning from **a week to a few hours** for release train engineers, scrum masters and PMs.
+### 5. EvalFrame
+I co-built EvalFrame, an LLM evaluation framework that auto-generates test suites, replays multi-turn conversations against live agents and scores them with a weighted LLM-as-judge rubric, plus a downvote-to-ticket feedback loop.
 
 **The common thread:** in every case, the hard part wasn't the model. It was getting the **right data, in the right shape, to the right place**, reliably and with the right permissions.
 
@@ -117,7 +106,7 @@ I cut the same pages five different ways and tested each one with both keyword s
 
 **6. Running a model during indexing is slow.** Cutting by topic change was the slowest method, because it runs the embedding model on every sentence. It's the same lesson as BILL: LLM-free indexing was faster and more reliable than calling a model for every item.
 
-**7. Testing is the most important part.** Without the 30 questions, I would only be guessing which method was better. This is why I co-built **EvalFrame**, an LLM evaluation framework that auto-generates test suites, replays multi-turn conversations against live agents, and scores them with a weighted LLM-as-judge rubric. This project reminded me that simple, mechanical checks ("is the answer actually in the result?") are a great partner to an LLM judge.
+**7. Testing is the most important part.** Without the 30 questions, I would only be guessing which method was better. With EvalFrame, an LLM judge scores whole conversations. This project showed me that simple, mechanical checks ("is the answer actually in the result?") are a good partner to that.
 
 ---
 

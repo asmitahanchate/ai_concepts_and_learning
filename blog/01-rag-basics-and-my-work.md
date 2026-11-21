@@ -2,9 +2,9 @@
 
 I learned something new today, and I want to write it down while it's fresh.
 
-At DevRev, I build AI agents for our customers. Twice this year, an agent I worked on gave answers that sounded confident but weren't true. In both cases the model itself was fine. The problem was simpler: **the model never saw the right information.**
+I'm an Applied AI Engineer at DevRev, working with S&P Global, Nutanix, Camping World and BILL. My work covers the whole path from data to answer: ingestion pipelines, retrieval and search, the agents on top, and the evaluation that tells us whether they work in production.
 
-Today I took a step back, went over the basics properly, and then built a small project to test what I learned. Here's what I found.
+Again and again, I've seen the same lesson: when an AI system gives a wrong answer, the model is often fine. **The system never gave it the right information.** So today I went back over the fundamentals of retrieval properly, and built a small project to test them with real numbers. Here's what I found, and how it connects to my work.
 
 ---
 
@@ -27,36 +27,47 @@ When the "book" is too big, you need a few more pieces:
 
 ---
 
-## Where I had already seen this at work
+## Where these ideas show up in my work
 
-### 1. BILL: a developer chatbot that invented API fields
+### 1. BILL: a RAG pipeline over an 800,000-character API spec
 
-BILL's developer chatbot was answering API questions, but sometimes it **made up fields** that didn't exist, or gave endpoint examples that didn't match the real API.
+BILL's developer assistant was sometimes **hallucinating API answers**: invented fields, or endpoint examples that didn't match the real API. Roughly 30–40% of answers had this problem.
 
-- BILL's API specification is about **800,000 characters**, far too big to give the model all at once.
-- The plan was to split the spec **one piece per API operation**. This is chunking by the document's natural structure.
-- The agent used two steps:
-  - **Discover:** find the API operation that matches the developer's question.
-  - **Verify:** look up that operation's **exact** definition (parameters, request body, responses) before answering.
-- The rule: no technical details without a successful lookup, and if the docs and the spec disagree, **the spec wins**.
-- Later, I fixed wrong documentation links by building each link from the endpoint details.
+- The OpenAPI specification is about **800,000 characters**, far too big to give the model all at once.
+- I built a **Retrieval-Augmented Generation (RAG) pipeline** over the OpenAPI spec using **two-stage retrieval**:
+  - **`/discover`** ranks API operations for a natural-language question.
+  - **`/get_endpoint_details`** returns one operation's full schema (parameters, request body, responses).
+- The assistant follows one simple rule: **verify before you answer.** No technical details without a successful lookup, and if the docs and the spec disagree, the spec wins.
+- With **LLM-free indexing**, this cut hallucinations from **~30–40% to under 2%** and reduced context tokens by **~70%**, at sub-second latency.
 
-**Something that didn't work, and what I learned from it:** I first tried asking an LLM to enrich each endpoint while building the index (about 300 endpoints, with 10 workers running at once). It hit rate limits, with waits of 39 to 293 seconds, and the job timed out at its 120-second limit. Lesson: **be careful about calling an LLM for every item while indexing.** Use a queue, retries with backoff, and a time budget.
+**What I learned from a first attempt that didn't work:** I originally tried enriching all 300 endpoints with an LLM while indexing, using 10 workers. The calls hit rate-limit backoffs of up to 293 seconds, against a 120-second serverless runtime limit. So I switched to **LLM-free, operation-level indexing** instead, which was faster and fully reliable. Lesson: **be careful about putting an LLM call on every item in your indexing path.**
 
-### 2. Nutanix: build logs too big to search
+### 2. Nutanix: agent memory for build failures
 
-Nutanix's root-cause-analysis agent needed to read build logs attached to support tickets. Some logs were up to **100 MB**, and files over **1 MB** were not indexed automatically, so the agent couldn't search them at all.
+At Nutanix, I architected **memory-based infrastructure for agents**, with Bring-Your-Own-Agent and Knowledge-Base support, so users can connect systems like Jira, Jenkins, AWS, GCP and Azure as agent memory.
 
-- I built a chunker that downloads the log from the ticket and splits it into **~60 KB pieces**, saving each piece as a searchable article with tags.
-- A 100 MB log became about **1,700 articles**.
-- Creating that many articles meant many API calls, so the bot ran into **rate limits**. A change was proposed to raise its limit from 2,000 to 10,000 requests per minute.
-- The RCA agent then answered from these chunked articles.
+- The **event-driven ingestion pipeline** captures each Jenkins build failure as it happens.
+- Build logs can be up to **200 MB**, and files over **1 MB** weren't indexed automatically. So the pipeline chunks each log into **~60 KB segments**, which makes them searchable with hybrid **BM25 + vector search**. A 100 MB log becomes about 1,700 segments.
+- On top of that, **signal-based text-to-SQL retrieval** finds the relevant failure data, and each failure is auto-routed to its owner as a Jira ticket.
+- Result: build-failure triage went from **up to 7 hours to under 30 seconds**, with **~96% root-cause accuracy** across 15–30 failed builds a day.
+- Creating that many segments also meant many API calls, so we had to plan carefully around **rate limits**.
 
-**What I understood today:** the platform doesn't turn a 60 KB article into one embedding. It splits each article again into smaller passages before embedding them, and shows the full article when one of its passages matches. So without planning it, I had built **two-level chunking**: my code made the big pieces, and the platform made the small ones.
+**What I understood more deeply today:** the platform doesn't turn a 60 KB segment into one embedding. It splits each one again into smaller passages before embedding, and shows the full segment when a passage matches. So the system works as **two-level chunking**: big segments for context, small passages for precise matching.
 
-### 3. Camping World: when search isn't the right tool
+### 3. Camping World: permission-scoped search, and knowing when not to search
 
-For a Camping World agent, a user wanted to find a specific chat. Search returned the **top 10 out of 223** chat rooms, but the one they needed was ranked **#143**, so it never showed up. I switched that part to a database query (SQL). Lesson: **search gives you the best matches, not a complete list.** For "find all of X," use a query.
+For Camping World (~13,000 employees), I engineered an **enterprise search system** that unifies Outlook, Teams, Jira, Confluence and Asana behind one AI assistant, with **permission-scoped retrieval**.
+
+- One user needed a specific Teams chat. Ranked search returned only the **top 10 of 223** chat rooms, and the one they needed was at **#143**.
+- By routing exact lookups like this to **deterministic SQL**, result coverage went from **~4.5% to 100%**.
+- Lesson: **search gives you the best matches, not a complete list.** For "find all of X," use a query.
+- I also scaled Camping World's data agents with a **summary-table caching layer** over tens of millions of Snowflake records, replacing ~32-second warehouse scans that timed out agent workflows with pre-aggregated reads.
+
+### 4. S&P Global: one knowledge layer for many sources
+
+For S&P Global, I designed a **unified knowledge layer** that syncs data from any source (for example, Azure DevOps) so it can be searched and queried with SQL. This shrank quarterly program (PI) planning from **a week to a few hours** for release train engineers, scrum masters and PMs.
+
+**The common thread:** in every case, the hard part wasn't the model. It was getting the **right data, in the right shape, to the right place**, reliably and with the right permissions.
 
 ---
 
@@ -94,23 +105,23 @@ I cut the same pages five different ways and tested each one with both keyword s
 
 ## What the results taught me
 
-**1. Smaller pieces cost much less.** Cutting the pages sent **9 to 18 times less text** and still found 63% to 80% of the answers. For BILL, the full spec was too big to use. For Nutanix, the logs couldn't even be indexed. Cutting things down wasn't optional.
+**1. Smaller pieces cost much less.** Cutting the pages sent **9 to 18 times less text** and still found 63% to 80% of the answers. For BILL, the full spec was too big to use. For Nutanix, the raw logs couldn't even be indexed. Cutting things down wasn't optional.
 
-**2. Cutting along the document's own structure worked best.** Splitting at section headings, with the heading on top of each piece, won with both kinds of search. Each piece is one complete idea with a name. That's the same idea as splitting BILL's spec one operation at a time. My Nutanix chunker split by size, so next time I would split logs at build stages or error blocks, with a label like "build 412 > test stage > error."
+**2. Cutting along the document's own structure worked best.** Splitting at section headings, with the heading on top of each piece, won with both kinds of search. Each piece is one complete idea with a name. That's the same idea as splitting BILL's spec one operation at a time. For logs, the next improvement I'd try is splitting at build stages or error blocks, with a label like "build 412 > test stage > error."
 
 **3. Meaning search usually beat keyword search.** People ask questions in different words than the documents use, and meaning search handles that well. Keyword search still matters for exact values like build numbers, error codes, or field names like `billCurrency`.
 
 **4. Neither search was perfect, and they missed different questions.** That's why combining them (hybrid search) works so well in practice, and it's what I'll test next.
 
-**5. More pieces means more cost.** The "small pieces" approach made 4,584 pieces, about four times more to embed and store. I saw the same thing with Nutanix: more chunks meant more API calls and more rate limits.
+**5. More pieces means more cost.** The "small pieces" approach made 4,584 pieces, about four times more to embed and store. I saw the same thing at Nutanix: more segments meant more API calls and more rate-limit planning.
 
-**6. Running a model during indexing is slow.** Cutting by topic change was the slowest method, because it runs the embedding model on every sentence. It's the same lesson as my BILL indexing attempt.
+**6. Running a model during indexing is slow.** Cutting by topic change was the slowest method, because it runs the embedding model on every sentence. It's the same lesson as BILL: LLM-free indexing was faster and more reliable than calling a model for every item.
 
-**7. Testing is the most important part.** Without the 30 questions, I would only be guessing which method was better. For BILL, I asked for a bug bash and a set of example questions with expected answers. For Nutanix, I reported about 96% accuracy, and now I know how I would measure a number like that more carefully: known failures, the error line I expect to find, and a score for each.
+**7. Testing is the most important part.** Without the 30 questions, I would only be guessing which method was better. This is why I co-built **EvalFrame**, an LLM evaluation framework that auto-generates test suites, replays multi-turn conversations against live agents, and scores them with a weighted LLM-as-judge rubric. This project reminded me that simple, mechanical checks ("is the answer actually in the result?") are a great partner to an LLM judge.
 
 ---
 
-## What I would do differently now
+## What I'm taking away
 
 1. **Split by structure, not just size:** logs by stage, API specs by operation, docs by heading. Give every piece a label.
 2. **Use keyword and meaning search together.**
